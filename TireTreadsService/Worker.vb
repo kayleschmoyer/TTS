@@ -36,11 +36,16 @@ Public Class Worker
     Protected Overrides Async Function ExecuteAsync(stoppingToken As CancellationToken) As Task
         _logger.Info($"🚀 TireTreadsService started. Will repeat every {_intervalMinutes} minutes.")
 
+        ' 🔍 Check for updates once before entering the main loop
+        If Await CheckForUpdateAsync() Then
+            Return ' Service will exit so the update script can restart it
+        End If
+
         While Not stoppingToken.IsCancellationRequested
             Try
-                ' ⬆️ Check for update before export
+                ' 🔍 Periodic update check at the beginning of each cycle
                 If Await CheckForUpdateAsync() Then
-                    Return ' Exiting because service will be restarted by update script
+                    Return
                 End If
 
                 _logger.Info("📦 Starting export and upload cycle...")
@@ -102,36 +107,42 @@ Public Class Worker
 
     Private Async Function DownloadAndInstallUpdateAsync(url As String) As Task
         Try
+            Dim tempDir = Path.GetTempPath()
             Dim exePath = Assembly.GetExecutingAssembly().Location
-            Dim exeDir = Path.GetDirectoryName(exePath)
-            Dim newFile = Path.Combine(exeDir, "TireTreadsService_new.exe")
-            Dim batchFile = Path.Combine(exeDir, "update_service.bat")
+            Dim newFile = Path.Combine(tempDir, "TireTreadsService_new.exe")
+            Dim batchFile = Path.Combine(tempDir, "update_service.bat")
 
-            _logger.Info("⬇️ Downloading new version...")
+            _logger.Info($"⬇️ Downloading new version from {url} to {newFile}")
             Using client As New HttpClient()
                 Dim data = Await client.GetByteArrayAsync(url)
                 File.WriteAllBytes(newFile, data)
             End Using
 
-            _logger.Info("🧠 Preparing update script...")
+            _logger.Info($"🧠 Preparing update script at {batchFile}")
 
-            Dim batContents As String = $"
-@echo off
-timeout /t 5 /nobreak
-sc stop {ServiceName}
-timeout /t 5 /nobreak
-copy /y ""{Path.GetFileName(newFile)}"" ""{Path.GetFileName(exePath)}""
-del ""{Path.GetFileName(newFile)}""
-sc start {ServiceName}
-"
+            ' If installed under Program Files, ensure the service account has
+            ' write permissions or consider installing under ProgramData.
 
-            File.WriteAllText(batchFile, batContents)
+            Dim script As String = $"@echo off{Environment.NewLine}" & _
+                               $"sc stop {ServiceName}{Environment.NewLine}" & _
+                               $":waitloop{Environment.NewLine}" & _
+                               $"sc query {ServiceName} | find \"STOPPED\" > nul{Environment.NewLine}" & _
+                               $"if %errorlevel% neq 0 ({Environment.NewLine}" & _
+                               $"    timeout /t 2 /nobreak > nul{Environment.NewLine}" & _
+                               $"    goto waitloop{Environment.NewLine}" & _
+                               $"){Environment.NewLine}" & _
+                               $"copy /y \"{newFile}\" \"{exePath}\"{Environment.NewLine}" & _
+                               $"del \"{newFile}\"{Environment.NewLine}" & _
+                               $"sc start {ServiceName}{Environment.NewLine}"
 
-            _logger.Info("🔄 Launching update and exiting service...")
+            File.WriteAllText(batchFile, script)
+
+            _logger.Info("🔄 Launching update script and exiting service...")
+
             Process.Start(New ProcessStartInfo With {
                 .FileName = batchFile,
-                .WorkingDirectory = exeDir,
                 .CreateNoWindow = True,
+                .UseShellExecute = False,
                 .WindowStyle = ProcessWindowStyle.Hidden
             })
 
