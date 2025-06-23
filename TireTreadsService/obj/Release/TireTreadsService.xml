@@ -1,0 +1,49 @@
+﻿<?xml version="1.0"?>
+<doc>
+<assembly>
+<name>
+TireTreadsService
+</name>
+</assembly>
+<members>
+<member name="T:TireTreadsService.My.Resources.Resources">
+<summary>
+  A strongly-typed resource class, for looking up localized strings, etc.
+</summary>
+</member>
+<member name="P:TireTreadsService.My.Resources.Resources.ResourceManager">
+<summary>
+  Returns the cached ResourceManager instance used by this class.
+</summary>
+</member>
+<member name="P:TireTreadsService.My.Resources.Resources.Culture">
+<summary>
+  Overrides the current thread's CurrentUICulture property for all
+  resource lookups using this strongly typed resource class.
+</summary>
+</member>
+<member name="T:TireTreadsService.SqlQueries">
+ <summary>
+ Provides reusable SQL queries used throughout the TireTreadsService.
+ </summary>
+</member>
+<member name="F:TireTreadsService.SqlQueries.GetCompanies">
+ <summary>
+ Returns all companies with associated district and area names.
+ </summary>
+</member>
+<member name="F:TireTreadsService.SqlQueries.GetManufacturers">
+ <summary>
+ Returns all manufacturer descriptions that are tire-related, enabled, and not empty.
+ </summary>
+</member>
+<member name="M:TireTreadsService.SqlQueries.GetInventoryQuery(System.Collections.Generic.List{System.String},System.Collections.Generic.List{System.String})">
+ <summary>
+ Builds an inventory query filtered by company IDs and tire brand names.
+ </summary>
+ <param name="companyIds">List of store/company numbers.</param>
+ <param name="manufacturers">List of manufacturer names (brand filters).</param>
+ <returns>A complete SQL string with embedded filters.</returns>
+</member>
+</members>
+</doc>
